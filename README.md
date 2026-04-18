@@ -20,7 +20,7 @@ The service then:
 - generates a UUID v7 profile ID
 - stores the result in a repository layer
 
-At the moment, the repository uses in-memory storage so the app works without a database. The storage logic is isolated behind a small abstraction so a real database can be added later without rewriting the route handlers.
+At the moment, the repository uses in-memory storage so the app works without a database. The storage logic is isolated behind a small abstraction and is now wired to switch automatically to MongoDB when you provide a `DATABASE_URL`.
 
 ## External APIs Used
 
@@ -508,13 +508,54 @@ What that means:
 
 This is acceptable for a no-database fallback, but not for durable production storage.
 
-If you want persistence later, the easiest upgrade path is to replace the current store implementation with a database-backed version while preserving the same methods:
+The repository is already wired for a database-backed mode using Mongoose:
 
-- `findById`
-- `findByName`
-- `list`
-- `create`
-- `delete`
+- If `DATABASE_URL` is not set, the app uses the in-memory store
+- If `DATABASE_URL` or `DB_URI` is set, the app uses MongoDB through Mongoose automatically
+
+By default, the MongoDB mode:
+
+- reads the database name from the connection string unless `DATABASE_NAME` is set
+- uses `profiles` as the collection name unless `DATABASE_COLLECTION` is set
+- applies a Mongoose schema for profile documents
+- creates indexes for `id`, `name`, and common filters
+
+Optional overrides:
+
+- `DATABASE_NAME`
+- `DATABASE_COLLECTION`
+
+### Database Setup
+
+To switch from memory to MongoDB, you only need to provide a connection string.
+
+Example local environment:
+
+```bash
+DATABASE_URL=mongodb+srv://username:password@cluster.mongodb.net/stage0
+```
+
+If you prefer, you can also use a standard MongoDB connection string:
+
+```bash
+DATABASE_URL=mongodb://127.0.0.1:27017/stage0
+```
+
+Then start the app normally:
+
+```bash
+npm start
+```
+
+On Vercel, add the same `DATABASE_URL` value to your project environment variables and redeploy.
+
+You can also use:
+
+```bash
+DB_URI=mongodb+srv://username:password@cluster.mongodb.net/stage0
+```
+
+The app accepts either variable name.
 
 ## Internal Architecture
 
@@ -535,7 +576,12 @@ Contains:
 
 ### `lib/profile-store.js`
 
-Contains the current in-memory profile repository and case-insensitive filtering logic.
+Contains:
+
+- the in-memory fallback store
+- the Mongoose connection logic
+- the Mongoose-backed profile store
+- the profile schema/model definition
 
 ### `server.js`
 

@@ -8,7 +8,10 @@ import {
 } from "../lib/profile-service.js";
 
 const app = express();
-const profileStore = getProfileStore();
+
+async function resolveProfileStore() {
+  return getProfileStore();
+}
 
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -39,6 +42,7 @@ app.get(["/", "/api"], (req, res) => {
 
 app.post("/api/profiles", async (req, res, next) => {
   try {
+    const profileStore = await resolveProfileStore();
     const validation = validateNameInput(req.body?.name);
 
     if (!validation.ok) {
@@ -71,6 +75,7 @@ app.post("/api/profiles", async (req, res, next) => {
 });
 
 app.get("/api/profiles/:id", async (req, res) => {
+  const profileStore = await resolveProfileStore();
   const profile = await profileStore.findById(req.params.id);
 
   if (!profile) {
@@ -87,6 +92,7 @@ app.get("/api/profiles/:id", async (req, res) => {
 });
 
 app.get("/api/profiles", async (req, res) => {
+  const profileStore = await resolveProfileStore();
   const profiles = await profileStore.list({
     gender: req.query.gender,
     country_id: req.query.country_id,
@@ -101,6 +107,7 @@ app.get("/api/profiles", async (req, res) => {
 });
 
 app.delete("/api/profiles/:id", async (req, res) => {
+  const profileStore = await resolveProfileStore();
   const deleted = await profileStore.delete(req.params.id);
 
   if (!deleted) {
