@@ -1,607 +1,225 @@
-# Stage 0 Profile Classification API
+# Insighta Labs Profile API
 
-An Express-based API that accepts a person's name, calls three public APIs, derives profile metadata, stores the result, and exposes endpoints to create, retrieve, filter, and delete profiles.
+An Express + MongoDB API for storing demographic profiles and querying them with exact filters or rule-based natural language search.
 
-This project is set up to run locally with Node.js and deploy on Vercel.
+## Features
 
-## Overview
+- `GET /api/profiles` with combined filtering, sorting, and pagination
+- `GET /api/profiles/search` with rule-based natural language parsing
+- `POST /api/profiles` for single profile creation from upstream demographic APIs
+- `GET /api/profiles/:id` and `DELETE /api/profiles/:id`
+- UUID v7 profile IDs
+- CORS enabled with `Access-Control-Allow-Origin: *`
+- Idempotent seed flow for 2026 profiles
 
-When a client submits a name, the API calls:
+## Profile schema
 
-- `Genderize` to estimate gender and confidence
-- `Agify` to estimate age
-- `Nationalize` to estimate nationality
+Each profile is stored with:
 
-The service then:
+- `id` - UUID v7
+- `name` - unique lowercase full name
+- `gender` - `male` or `female`
+- `gender_probability` - float
+- `age` - integer
+- `age_group` - `child`, `teenager`, `adult`, or `senior`
+- `country_id` - ISO alpha-2 code
+- `country_name` - full country name
+- `country_probability` - float
+- `created_at` - UTC ISO 8601 timestamp
 
-- normalizes the name to lowercase
-- classifies the age into an age group
-- picks the nationality with the highest probability
-- generates a UUID v7 profile ID
-- stores the result in a repository layer
+## Setup
 
-At the moment, the repository uses in-memory storage so the app works without a database. The storage logic is isolated behind a small abstraction and is now wired to switch automatically to MongoDB when you provide a `DATABASE_URL`.
-
-## External APIs Used
-
-- Genderize: `https://api.genderize.io?name={name}`
-- Agify: `https://api.agify.io?name={name}`
-- Nationalize: `https://api.nationalize.io?name={name}`
-
-No API key is required for these services.
-
-## Tech Stack
-
-- Node.js
-- Express
-- Axios
-- Vercel serverless deployment
-
-## Project Structure
-
-```text
-.
-|-- api/
-|   `-- index.js
-|-- lib/
-|   |-- profile-service.js
-|   `-- profile-store.js
-|-- server.js
-|-- vercel.json
-|-- package.json
-`-- README.md
-```
-
-## How It Works
-
-### Request Flow
-
-1. A client sends a request to create a profile with a `name`.
-2. The API validates the input.
-3. The service checks whether that normalized name already exists.
-4. If it exists, the existing record is returned.
-5. If it does not exist, the app calls the three upstream APIs in parallel.
-6. The responses are validated.
-7. The profile is built and stored.
-8. The created profile is returned to the client.
-
-### Classification Logic
-
-- Age `0-12` -> `child`
-- Age `13-19` -> `teenager`
-- Age `20-59` -> `adult`
-- Age `60+` -> `senior`
-
-For nationality, the app selects the country with the highest probability from the `Nationalize` response.
-
-## Data Model
-
-A stored profile contains:
-
-```json
-{
-  "id": "019da0f6-62b4-798a-a924-fdb3223c435c",
-  "name": "ella",
-  "gender": "female",
-  "gender_probability": 0.99,
-  "sample_size": 1234,
-  "age": 46,
-  "age_group": "adult",
-  "country_id": "DRC",
-  "country_probability": 0.85,
-  "created_at": "2026-04-18T14:19:54.932Z"
-}
-```
-
-Notes:
-
-- `id` is generated as UUID v7
-- `created_at` is UTC ISO 8601
-- `name` is stored in lowercase
-
-## API Base URL
-
-Local development:
-
-```text
-http://localhost:3000
-```
-
-Production:
-
-```text
-https://your-vercel-deployment-url.vercel.app
-```
-
-## Endpoints
-
-### Health Check
-
-`GET /`
-
-`GET /api`
-
-Returns a simple status payload and a list of available endpoints.
-
-Example response:
-
-```json
-{
-  "status": "success",
-  "message": "API is running, HNG14",
-  "endpoints": {
-    "create_profile": "POST /api/profiles",
-    "get_profile": "GET /api/profiles/:id",
-    "list_profiles": "GET /api/profiles",
-    "delete_profile": "DELETE /api/profiles/:id"
-  }
-}
-```
-
-### Create Profile
-
-`POST /api/profiles`
-
-Request body:
-
-```json
-{
-  "name": "ella"
-}
-```
-
-Success response when a new profile is created:
-
-```json
-{
-  "status": "success",
-  "data": {
-    "id": "019da0f6-62b4-798a-a924-fdb3223c435c",
-    "name": "ella",
-    "gender": "female",
-    "gender_probability": 0.99,
-    "sample_size": 1234,
-    "age": 46,
-    "age_group": "adult",
-    "country_id": "DRC",
-    "country_probability": 0.85,
-    "created_at": "2026-04-18T14:19:54.932Z"
-  }
-}
-```
-
-Response when the profile already exists:
-
-```json
-{
-  "status": "success",
-  "message": "Profile already exists",
-  "data": {
-    "id": "019da0f6-62b4-798a-a924-fdb3223c435c",
-    "name": "ella",
-    "gender": "female",
-    "gender_probability": 0.99,
-    "sample_size": 1234,
-    "age": 46,
-    "age_group": "adult",
-    "country_id": "DRC",
-    "country_probability": 0.85,
-    "created_at": "2026-04-18T14:19:54.932Z"
-  }
-}
-```
-
-### Get Single Profile
-
-`GET /api/profiles/:id`
-
-Example response:
-
-```json
-{
-  "status": "success",
-  "data": {
-    "id": "019da0f6-62b4-798a-a924-fdb3223c435c",
-    "name": "ella",
-    "gender": "female",
-    "gender_probability": 0.99,
-    "sample_size": 1234,
-    "age": 46,
-    "age_group": "adult",
-    "country_id": "DRC",
-    "country_probability": 0.85,
-    "created_at": "2026-04-18T14:19:54.932Z"
-  }
-}
-```
-
-### Get All Profiles
-
-`GET /api/profiles`
-
-Supported optional query parameters:
-
-- `gender`
-- `country_id`
-- `age_group`
-
-Filtering is case-insensitive.
-
-Example:
-
-```text
-/api/profiles?gender=male&country_id=NG
-```
-
-Example response:
-
-```json
-{
-  "status": "success",
-  "count": 2,
-  "data": [
-    {
-      "id": "id-1",
-      "name": "emmanuel",
-      "gender": "male",
-      "age": 25,
-      "age_group": "adult",
-      "country_id": "NG"
-    },
-    {
-      "id": "id-2",
-      "name": "sarah",
-      "gender": "female",
-      "age": 28,
-      "age_group": "adult",
-      "country_id": "US"
-    }
-  ]
-}
-```
-
-### Delete Profile
-
-`DELETE /api/profiles/:id`
-
-Success response:
-
-- `204 No Content`
-
-## Error Handling
-
-All error responses follow this format:
-
-```json
-{
-  "status": "error",
-  "message": "Error message"
-}
-```
-
-### Validation Errors
-
-- `400 Bad Request` -> missing or empty `name`
-- `422 Unprocessable Entity` -> invalid `name` type
-
-Examples:
-
-```json
-{
-  "status": "error",
-  "message": "Missing or empty name"
-}
-```
-
-```json
-{
-  "status": "error",
-  "message": "Invalid type"
-}
-```
-
-### Not Found
-
-- `404 Not Found` -> profile does not exist
-
-Example:
-
-```json
-{
-  "status": "error",
-  "message": "Profile not found"
-}
-```
-
-### Upstream API Errors
-
-If any external API returns invalid data, the profile is not stored and the API returns `502`.
-
-Possible messages:
-
-- `Genderize returned an invalid response`
-- `Agify returned an invalid response`
-- `Nationalize returned an invalid response`
-
-Example:
-
-```json
-{
-  "status": "error",
-  "message": "Genderize returned an invalid response"
-}
-```
-
-### Generic Server Error
-
-Unexpected internal failures return:
-
-```json
-{
-  "status": "error",
-  "message": "Internal server error"
-}
-```
-
-## Edge Cases Covered
-
-- Duplicate names do not create duplicate records
-- `Genderize` returning `gender: null` or `count: 0` returns `502`
-- `Agify` returning `age: null` returns `502`
-- `Nationalize` returning no country data returns `502`
-- Query filtering is case-insensitive
-- Unknown routes return `404`
-- Unsupported preflight requests are handled through `OPTIONS`
-
-## CORS
-
-The API sends:
-
-```text
-Access-Control-Allow-Origin: *
-```
-
-It also allows:
-
-- `GET`
-- `POST`
-- `DELETE`
-- `OPTIONS`
-
-This is important for external clients and automated grading scripts.
-
-## Local Development
-
-### Prerequisites
-
-- Node.js 18+ recommended
-- npm
-
-### Install Dependencies
+1. Install dependencies:
 
 ```bash
 npm install
 ```
 
-### Run Locally
+2. Add environment variables in `.env`:
 
-```bash
-npm start
+```env
+PORT=3000
+DATABASE_URL=mongodb://localhost:27017
+DATABASE_NAME=insighta_labs
+DATABASE_COLLECTION=profiles
+PROFILES_SEED_FILE=./data/profiles-2026.json
+AUTO_SEED_PROFILES=false
 ```
 
-The server starts on:
-
-```text
-http://localhost:3000
-```
-
-There is also a development script configured:
+3. Start the server:
 
 ```bash
 npm run dev
 ```
 
-Note:
+## Seeding 2026 profiles
 
-- `package.json` includes a `dev` script using `nodemon`
-- if `nodemon` is not installed in your environment, install it first or keep using `npm start`
+Place the provided JSON file at `data/profiles-2026.json` or point `PROFILES_SEED_FILE` / `PROFILES_SEED_SOURCE` to the correct path or URL.
 
-## Example Requests
+Run the seed manually:
 
-### Postman
+```bash
+npm run seed
+```
 
-Create:
+Or pass a source directly:
 
-- Method: `POST`
-- URL: `http://localhost:3000/api/profiles`
-- Body type: `raw`
-- Body format: `JSON`
+```bash
+node scripts/seed-profiles.js ./data/profiles-2026.json
+```
+
+Seed behavior:
+
+- Uses profile `name` as the idempotent key
+- Re-running the seed updates existing matching names instead of inserting duplicates
+- Accepts a top-level array or `{ "data": [...] }` / `{ "profiles": [...] }`
+
+## Endpoints
+
+### `GET /api/profiles`
+
+Supported filters:
+
+- `gender`
+- `age_group`
+- `country_id`
+- `min_age`
+- `max_age`
+- `min_gender_probability`
+- `min_country_probability`
+
+Sorting:
+
+- `sort_by=age|created_at|gender_probability`
+- `order=asc|desc`
+
+Pagination:
+
+- `page` defaults to `1`
+- `limit` defaults to `10`
+- `limit` max is `50`
+
+Example:
+
+```http
+GET /api/profiles?gender=male&country_id=NG&min_age=25&sort_by=age&order=desc&page=1&limit=10
+```
+
+Success response:
 
 ```json
 {
-  "name": "ella"
+  "status": "success",
+  "page": 1,
+  "limit": 10,
+  "total": 2026,
+  "data": [
+    {
+      "id": "018fe6f1-bc54-72d4-8f4b-08a9f0c5b247",
+      "name": "emmanuel",
+      "gender": "male",
+      "gender_probability": 0.99,
+      "age": 34,
+      "age_group": "adult",
+      "country_id": "NG",
+      "country_name": "Nigeria",
+      "country_probability": 0.85,
+      "created_at": "2026-04-01T12:00:00.000Z"
+    }
+  ]
 }
 ```
 
-List:
+### `GET /api/profiles/search`
 
-- `GET http://localhost:3000/api/profiles`
-- `GET http://localhost:3000/api/profiles?gender=male`
-- `GET http://localhost:3000/api/profiles?country_id=NG`
-- `GET http://localhost:3000/api/profiles?age_group=adult`
+Example:
 
-Single profile:
-
-- `GET http://localhost:3000/api/profiles/<profile-id>`
-
-Delete:
-
-- `DELETE http://localhost:3000/api/profiles/<profile-id>`
-
-### cURL
-
-Create a profile:
-
-```bash
-curl -X POST http://localhost:3000/api/profiles \
-  -H "Content-Type: application/json" \
-  -d '{"name":"ella"}'
+```http
+GET /api/profiles/search?q=young males from nigeria&page=1&limit=10
 ```
 
-Get all profiles:
+This endpoint converts a plain-English query into the same structured filters used by `GET /api/profiles`.
 
-```bash
-curl http://localhost:3000/api/profiles
+## Natural language parsing approach
+
+The parser is intentionally rule-based. It does not call any AI model or external NLP service.
+
+Parsing flow:
+
+1. Lowercase the query and remove punctuation.
+2. Scan for supported gender, age, age-group, and country keywords.
+3. Convert matches into structured filters.
+4. Merge overlapping age constraints.
+5. Reject queries where no supported rule can be mapped.
+
+Supported keyword mapping:
+
+- `male`, `males`, `man`, `men`, `boy`, `boys` -> `gender=male`
+- `female`, `females`, `woman`, `women`, `girl`, `girls` -> `gender=female`
+- `young` -> `min_age=16`, `max_age=24`
+- `child`, `children` -> `age_group=child`
+- `teen`, `teens`, `teenager`, `teenagers` -> `age_group=teenager`
+- `adult`, `adults` -> `age_group=adult`
+- `senior`, `seniors`, `elderly` -> `age_group=senior`
+- `above 30`, `over 30`, `older than 30`, `at least 30` -> `min_age=30`
+- `below 20`, `under 20`, `younger than 20`, `at most 20` -> `max_age=20`
+- `between 18 and 25` -> `min_age=18`, `max_age=25`
+- country names such as `nigeria`, `kenya`, `angola` -> mapped to ISO country codes like `NG`, `KE`, `AO`
+
+Examples:
+
+- `young males` -> `gender=male`, `min_age=16`, `max_age=24`
+- `females above 30` -> `gender=female`, `min_age=30`
+- `people from angola` -> `country_id=AO`
+- `adult males from kenya` -> `gender=male`, `age_group=adult`, `country_id=KE`
+- `male and female teenagers above 17` -> `age_group=teenager`, `min_age=17`
+
+### Limitations
+
+- The parser only supports the explicit keyword patterns listed above.
+- It does not understand misspellings, abbreviations beyond the hardcoded rules, or arbitrary sentence structure.
+- It does not resolve contradictory phrases semantically beyond numeric validation.
+- It does not support OR logic such as "males from nigeria or kenya".
+- It currently ships with an African country name map because the project examples and expected dataset use African ISO codes.
+- Queries with no recognized supported keywords return:
+
+```json
+{
+  "status": "error",
+  "message": "Unable to interpret query"
+}
 ```
 
-Filter profiles:
+## Error responses
 
-```bash
-curl "http://localhost:3000/api/profiles?gender=male&country_id=NG"
+All errors use this shape:
+
+```json
+{
+  "status": "error",
+  "message": "<error message>"
+}
 ```
 
-Get one profile:
+Common responses:
 
-```bash
-curl http://localhost:3000/api/profiles/<profile-id>
+- `400` - missing or empty required parameter
+- `422` - invalid query parameters or invalid parameter type
+- `404` - profile not found
+- `500` - internal server error
+- `502` - upstream demographic API failure
+
+Invalid list/search query parameters return:
+
+```json
+{
+  "status": "error",
+  "message": "Invalid query parameters"
+}
 ```
 
-Delete a profile:
+## Notes on query performance
 
-```bash
-curl -X DELETE http://localhost:3000/api/profiles/<profile-id>
-```
-
-## Deployment on Vercel
-
-The repository is configured for Vercel through [vercel.json](/c:/Users/nezia/Desktop/stage_0-main/vercel.json:1).
-
-Current rewrite rules:
-
-- `/` -> `/api/index.js`
-- `/api/:path*` -> `/api/index.js`
-
-This means Vercel routes incoming requests into the Express app exported from `api/index.js`.
-
-### Deploy Steps
-
-1. Push the repository to GitHub.
-2. Import the project into Vercel.
-3. Vercel will install dependencies from `package.json`.
-4. Deploy.
-
-After deployment, test:
-
-- `GET /`
-- `POST /api/profiles`
-- `GET /api/profiles`
-
-## Storage Design
-
-The app currently uses an in-memory repository defined in [lib/profile-store.js](/c:/Users/nezia/Desktop/stage_0-main/lib/profile-store.js:1).
-
-What that means:
-
-- the app works without a database
-- data is process-local
-- data will not persist reliably across server restarts or serverless cold starts
-
-This is acceptable for a no-database fallback, but not for durable production storage.
-
-The repository is already wired for a database-backed mode using Mongoose:
-
-- If `DATABASE_URL` is not set, the app uses the in-memory store
-- If `DATABASE_URL` or `DB_URI` is set, the app uses MongoDB through Mongoose automatically
-
-By default, the MongoDB mode:
-
-- reads the database name from the connection string unless `DATABASE_NAME` is set
-- uses `profiles` as the collection name unless `DATABASE_COLLECTION` is set
-- applies a Mongoose schema for profile documents
-- creates indexes for `id`, `name`, and common filters
-
-Optional overrides:
-
-- `DATABASE_NAME`
-- `DATABASE_COLLECTION`
-
-### Database Setup
-
-To switch from memory to MongoDB, you only need to provide a connection string.
-
-Example local environment:
-
-```bash
-DATABASE_URL=mongodb+srv://username:password@cluster.mongodb.net/stage0
-```
-
-If you prefer, you can also use a standard MongoDB connection string:
-
-```bash
-DATABASE_URL=mongodb://127.0.0.1:27017/stage0
-```
-
-Then start the app normally:
-
-```bash
-npm start
-```
-
-On Vercel, add the same `DATABASE_URL` value to your project environment variables and redeploy.
-
-You can also use:
-
-```bash
-DB_URI=mongodb+srv://username:password@cluster.mongodb.net/stage0
-```
-
-The app accepts either variable name.
-
-## Internal Architecture
-
-### `api/index.js`
-
-Defines the Express app, middleware, routes, CORS handling, and error responses.
-
-### `lib/profile-service.js`
-
-Contains:
-
-- input validation
-- UUID v7 generation
-- external API orchestration
-- upstream response validation
-- age-group classification logic
-- response shaping for list endpoints
-
-### `lib/profile-store.js`
-
-Contains:
-
-- the in-memory fallback store
-- the Mongoose connection logic
-- the Mongoose-backed profile store
-- the profile schema/model definition
-
-### `server.js`
-
-Starts the Express app locally with `app.listen(...)`.
-
-## Current Limitations
-
-- No persistent database is connected yet
-- Profiles are lost when in-memory state resets
-- No automated test suite is included yet
-- Live behavior depends on the availability of the three external APIs
-
-## Possible Next Improvements
-
-- Add a real database such as PostgreSQL or MongoDB
-- Add automated tests for routes and service logic
-- Add request logging
-- Add rate limiting and timeout controls
-- Add environment-based configuration
-
-## License
-
-ISC
+- MongoDB indexes are defined for `name`, `gender`, `age_group`, `country_id`, `age`, `gender_probability`, and `created_at`
+- Filtered reads use MongoDB query operators with `skip` and `limit`
+- The API avoids fetching the full result set before pagination when MongoDB is configured

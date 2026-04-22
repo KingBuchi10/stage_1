@@ -3,14 +3,25 @@ import { getProfileStore } from "../lib/profile-store.js";
 import {
   buildProfile,
   isKnownAppError,
-  toProfileListItem,
+  serializeProfile,
   validateNameInput,
 } from "../lib/profile-service.js";
+import { parseListQuery, parseNaturalLanguageQuery } from "../lib/profile-query.js";
 
 const app = express();
 
 async function resolveProfileStore() {
   return getProfileStore();
+}
+
+function sendListResponse(res, result, page, limit) {
+  return res.status(200).json({
+    status: "success",
+    page,
+    limit,
+    total: result.total,
+    data: result.data.map(serializeProfile),
+  });
 }
 
 app.use((req, res, next) => {
@@ -30,11 +41,12 @@ app.use(express.json());
 app.get(["/", "/api"], (req, res) => {
   res.status(200).json({
     status: "success",
-    message: "API is running, HNG14",
+    message: "API is running",
     endpoints: {
       create_profile: "POST /api/profiles",
       get_profile: "GET /api/profiles/:id",
       list_profiles: "GET /api/profiles",
+      search_profiles: "GET /api/profiles/search",
       delete_profile: "DELETE /api/profiles/:id",
     },
   });
@@ -58,7 +70,7 @@ app.post("/api/profiles", async (req, res, next) => {
       return res.status(200).json({
         status: "success",
         message: "Profile already exists",
-        data: existingProfile,
+        data: serializeProfile(existingProfile),
       });
     }
 
@@ -67,8 +79,33 @@ app.post("/api/profiles", async (req, res, next) => {
 
     return res.status(201).json({
       status: "success",
-      data: profile,
+      data: serializeProfile(profile),
     });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get("/api/profiles/search", async (req, res, next) => {
+  try {
+    const profileStore = await resolveProfileStore();
+    const filters = parseNaturalLanguageQuery(req.query.q);
+    const { page, limit, sortBy, order } = parseListQuery({
+      page: req.query.page,
+      limit: req.query.limit,
+      sort_by: req.query.sort_by,
+      order: req.query.order,
+    });
+
+    const result = await profileStore.list({
+      filters,
+      page,
+      limit,
+      sortBy,
+      order,
+    });
+
+    return sendListResponse(res, result, page, limit);
   } catch (error) {
     return next(error);
   }
@@ -87,23 +124,26 @@ app.get("/api/profiles/:id", async (req, res) => {
 
   return res.status(200).json({
     status: "success",
-    data: profile,
+    data: serializeProfile(profile),
   });
 });
 
-app.get("/api/profiles", async (req, res) => {
-  const profileStore = await resolveProfileStore();
-  const profiles = await profileStore.list({
-    gender: req.query.gender,
-    country_id: req.query.country_id,
-    age_group: req.query.age_group,
-  });
+app.get("/api/profiles", async (req, res, next) => {
+  try {
+    const profileStore = await resolveProfileStore();
+    const { filters, page, limit, sortBy, order } = parseListQuery(req.query);
+    const result = await profileStore.list({
+      filters,
+      page,
+      limit,
+      sortBy,
+      order,
+    });
 
-  return res.status(200).json({
-    status: "success",
-    count: profiles.length,
-    data: profiles.map(toProfileListItem),
-  });
+    return sendListResponse(res, result, page, limit);
+  } catch (error) {
+    return next(error);
+  }
 });
 
 app.delete("/api/profiles/:id", async (req, res) => {
@@ -134,6 +174,8 @@ app.use((error, req, res, next) => {
       message: error.message,
     });
   }
+
+  console.error(error);
 
   return res.status(500).json({
     status: "error",
