@@ -1,0 +1,122 @@
+[
+  {
+    "id": "019662d6-f4d0-7000-8000-000000000001",
+    "name": "Adaeze Okafor",
+    "gender": "female",
+    "gender_probability": 0.99,
+    "age": 29,
+    "age_group": "adult",
+    "country_id": "NG",
+    "country_name": "Nigeria",
+    "country_probability": 0.97,
+    "created_at": "2026-01-05T09:00:00.000Z"
+  },
+  {
+    "id": "019662d6-f4d0-7000-8000-000000000002",
+    "name": "Kwame Mensah",
+    "gender": "male",
+    "gender_probability": 0.98,
+    "age": 34,
+    "age_group": "adult",
+    "country_id": "GH",
+    "country_name": "Ghana",
+    "country_probability": 0.95,
+    "created_at": "2026-01-10T10:30:00.000Z"
+  },
+  {
+    "id": "019662d6-f4d0-7000-8000-000000000003",
+    "name": "Amina Yusuf",
+    "gender": "female",
+    "gender_probability": 0.97,
+    "age": 22,
+    "age_group": "adult",
+    "country_id": "NG",
+    "country_name": "Nigeria",
+    "country_probability": 0.96,
+    "created_at": "2026-01-15T08:15:00.000Z"
+  },
+  {
+    "id": "019662d6-f4d0-7000-8000-000000000004",
+    "name": "Brian Otieno",
+    "gender": "male",
+    "gender_probability": 0.96,
+    "age": 19,
+    "age_group": "teenager",
+    "country_id": "KE",
+    "country_name": "Kenya",
+    "country_probability": 0.94,
+    "created_at": "2026-01-20T14:45:00.000Z"
+  },
+  {
+    "id": "019662d6-f4d0-7000-8000-000000000005",
+    "name": "Lerato Mokoena",
+    "gender": "female",
+    "gender_probability": 0.98,
+    "age": 41,
+    "age_group": "adult",
+    "country_id": "ZA",
+    "country_name": "South Africa",
+    "country_probability": 0.93,
+    "created_at": "2026-02-01T11:20:00.000Z"
+  },
+  {
+    "id": "019662d6-f4d0-7000-8000-000000000006",
+    "name": "Jean Baptiste",
+    "gender": "male",
+    "gender_probability": 0.95,
+    "age": 52,
+    "age_group": "senior",
+    "country_id": "RW",
+    "country_name": "Rwanda",
+    "country_probability": 0.91,
+    "created_at": "2026-02-08T16:00:00.000Z"
+  },
+  {
+    "id": "019662d6-f4d0-7000-8000-000000000007",
+    "name": "Mariam Traore",
+    "gender": "female",
+    "gender_probability": 0.94,
+    "age": 17,
+    "age_group": "teenager",
+    "country_id": "ML",
+    "country_name": "Mali",
+    "country_probability": 0.9,
+    "created_at": "2026-02-14T12:10:00.000Z"
+  },
+  {
+    "id": "019662d6-f4d0-7000-8000-000000000008",
+    "name": "Samuel Tembo",
+    "gender": "male",
+    "gender_probability": 0.97,
+    "age": 12,
+    "age_group": "child",
+    "country_id": "ZM",
+    "country_name": "Zambia",
+    "country_probability": 0.92,
+    "created_at": "2026-02-20T07:50:00.000Z"
+  },
+  {
+    "id": "019662d6-f4d0-7000-8000-000000000009",
+    "name": "Fatou Ndiaye",
+    "gender": "female",
+    "gender_probability": 0.98,
+    "age": 31,
+    "age_group": "adult",
+    "country_id": "SN",
+    "country_name": "Senegal",
+    "country_probability": 0.95,
+    "created_at": "2026-03-03T13:25:00.000Z"
+  },
+  {
+    "id": "019662d6-f4d0-7000-8000-000000000010",
+    "name": "Tesfaye Bekele",
+    "gender": "male",
+    "gender_probability": 0.96,
+    "age": 27,
+    "age_group": "adult",
+    "country_id": "ET",
+    "country_name": "Ethiopia",
+    "country_probability": 0.94,
+    "created_at": "2026-03-12T18:40:00.000Z"
+  }
+]
