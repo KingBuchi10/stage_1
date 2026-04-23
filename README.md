@@ -54,7 +54,7 @@ npm run dev
 
 ## Seeding 2026 profiles
 
-Place the provided JSON file at `data/profiles-2026.json` or point `PROFILES_SEED_FILE` / `PROFILES_SEED_SOURCE` to the correct path or URL.
+The repository ships with a starter seed file at `data/profiles-2026.json`. You can use it as-is, replace it with your own dataset, or point `PROFILES_SEED_FILE` / `PROFILES_SEED_SOURCE` to a different path or URL.
 
 Run the seed manually:
 
