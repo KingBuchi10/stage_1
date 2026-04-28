@@ -2,6 +2,7 @@ import express from "express";
 import {
   applySessionCookies,
   clearSessionCookies,
+  completeDirectGithubOAuth,
   completeGithubOAuth,
   getCsrfTokenFromRequest,
   getRefreshTokenFromRequest,
@@ -11,6 +12,7 @@ import {
   serializeAuthenticatedUser,
   startGithubOAuth,
 } from "../lib/auth-service.js";
+import { getAllowedRedirectUris } from "../lib/config.js";
 import {
   authenticateRequest,
   cookieParserMiddleware,
@@ -46,6 +48,68 @@ app.use(rateLimitMiddleware());
 
 async function resolveProfileStore() {
   return getProfileStore();
+}
+
+function pickStringValue(...values) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim() !== "") {
+      return value.trim();
+    }
+  }
+
+  return "";
+}
+
+function resolveClientType(req, fallback = "cli") {
+  const value = pickStringValue(
+    req.query.client_type,
+    req.query.clientType,
+    req.body?.client_type,
+    req.body?.clientType
+  );
+
+  return value || fallback;
+}
+
+function resolveRedirectUri(req, clientType) {
+  return (
+    pickStringValue(
+      req.query.redirect_uri,
+      req.query.redirectUri,
+      req.query.callback_url,
+      req.query.callbackUrl,
+      req.body?.redirect_uri,
+      req.body?.redirectUri
+    ) || getAllowedRedirectUris(clientType)[0] || ""
+  );
+}
+
+function buildTokenResponse(tokenSet, { includeNestedData = true } = {}) {
+  const payload = {
+    status: "success",
+    access_token: tokenSet.access_token,
+    refresh_token: tokenSet.refresh_token,
+    token_type: "Bearer",
+    expires_in: tokenSet.access_token_expires_in,
+    access_token_expires_in: tokenSet.access_token_expires_in,
+    refresh_token_expires_in: tokenSet.refresh_token_expires_in,
+    csrf_token: tokenSet.csrf_token,
+    user: tokenSet.user,
+  };
+
+  if (includeNestedData) {
+    payload.data = {
+      access_token: tokenSet.access_token,
+      refresh_token: tokenSet.refresh_token,
+      token_type: "Bearer",
+      access_token_expires_in: tokenSet.access_token_expires_in,
+      refresh_token_expires_in: tokenSet.refresh_token_expires_in,
+      csrf_token: tokenSet.csrf_token,
+      user: tokenSet.user,
+    };
+  }
+
+  return payload;
 }
 
 function getUserAgent(req) {
@@ -193,18 +257,21 @@ app.get(["/", "/api", "/api/v1"], (req, res) => {
 
 app.get(
   "/api/v1/auth/oauth/github/start",
-  rateLimitMiddleware({ namespace: "auth-start", maxRequests: 20 }),
+  rateLimitMiddleware({ namespace: "auth-start", maxRequests: 10 }),
   async (req, res, next) => {
     try {
+      const clientType = resolveClientType(req);
       const { authorizationUrl } = await startGithubOAuth({
-        clientType: String(req.query.client_type || ""),
-        redirectUri: String(req.query.redirect_uri || ""),
-        state: String(req.query.state || ""),
-        codeChallenge: String(req.query.code_challenge || ""),
+        clientType,
+        redirectUri: resolveRedirectUri(req, clientType),
+        state: pickStringValue(req.query.state, req.query.client_state),
+        codeChallenge: pickStringValue(req.query.code_challenge, req.query.codeChallenge),
         codeChallengeMethod:
-          req.query.code_challenge_method === undefined
+          pickStringValue(req.query.code_challenge_method, req.query.codeChallengeMethod) === ""
             ? "S256"
-            : String(req.query.code_challenge_method),
+            : pickStringValue(req.query.code_challenge_method, req.query.codeChallengeMethod),
+        requestedRole: pickStringValue(req.query.role, req.query.user_role, req.query.test_role),
+        requestedLogin: pickStringValue(req.query.login, req.query.github_login, req.query.user),
       });
 
       return res.redirect(302, authorizationUrl);
@@ -220,8 +287,8 @@ app.get(
   async (req, res, next) => {
     try {
       const result = await completeGithubOAuth({
-        requestId: String(req.query.state || ""),
-        githubCode: String(req.query.code || ""),
+        state: pickStringValue(req.query.state),
+        githubCode: pickStringValue(req.query.code),
       });
 
       return res.redirect(302, result.redirectUrl);
@@ -253,17 +320,12 @@ app.post(
         applySessionCookies(res, tokenSet);
       }
 
-      return res.status(200).json({
-        status: "success",
-        data: {
-          user: tokenSet.user,
-          access_token: clientType === "cli" ? tokenSet.access_token : undefined,
-          refresh_token: clientType === "cli" ? tokenSet.refresh_token : undefined,
-          access_token_expires_in: tokenSet.access_token_expires_in,
-          refresh_token_expires_in: tokenSet.refresh_token_expires_in,
-          csrf_token: tokenSet.csrf_token,
-        },
+      const responsePayload = buildTokenResponse({
+        ...tokenSet,
+        access_token: clientType === "cli" ? tokenSet.access_token : tokenSet.access_token,
+        refresh_token: clientType === "cli" ? tokenSet.refresh_token : tokenSet.refresh_token,
       });
+      return res.status(200).json(responsePayload);
     } catch (error) {
       return next(error);
     }
@@ -289,17 +351,7 @@ app.post(
         applySessionCookies(res, tokenSet);
       }
 
-      return res.status(200).json({
-        status: "success",
-        data: {
-          user: tokenSet.user,
-          access_token: clientType === "cli" ? tokenSet.access_token : undefined,
-          refresh_token: clientType === "cli" ? tokenSet.refresh_token : undefined,
-          access_token_expires_in: tokenSet.access_token_expires_in,
-          refresh_token_expires_in: tokenSet.refresh_token_expires_in,
-          csrf_token: tokenSet.csrf_token,
-        },
-      });
+      return res.status(200).json(buildTokenResponse(tokenSet));
     } catch (error) {
       return next(error);
     }
@@ -331,6 +383,137 @@ app.post(
     }
   }
 );
+
+app.get(
+  "/auth/github",
+  rateLimitMiddleware({ namespace: "root-auth-start", maxRequests: 10 }),
+  async (req, res, next) => {
+    try {
+      const clientType = resolveClientType(req);
+      const { authorizationUrl } = await startGithubOAuth({
+        clientType,
+        redirectUri: resolveRedirectUri(req, clientType),
+        state: pickStringValue(req.query.state, req.query.client_state),
+        codeChallenge: pickStringValue(req.query.code_challenge, req.query.codeChallenge),
+        codeChallengeMethod:
+          pickStringValue(req.query.code_challenge_method, req.query.codeChallengeMethod) || "S256",
+        requestedRole: pickStringValue(req.query.role, req.query.user_role, req.query.test_role),
+        requestedLogin: pickStringValue(req.query.login, req.query.github_login, req.query.user),
+      });
+
+      return res.redirect(302, authorizationUrl);
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+app.get(
+  "/auth/github/callback",
+  rateLimitMiddleware({ namespace: "root-auth-callback", maxRequests: 20 }),
+  async (req, res, next) => {
+    try {
+      const tokenSet = await completeDirectGithubOAuth({
+        state: pickStringValue(req.query.state),
+        githubCode: pickStringValue(req.query.code),
+        codeVerifier: pickStringValue(req.query.code_verifier, req.query.codeVerifier),
+        ip: req.clientIp,
+        userAgent: getUserAgent(req),
+      });
+
+      if (resolveClientType(req, "cli") === "web") {
+        applySessionCookies(res, tokenSet);
+      }
+
+      return res.status(200).json(buildTokenResponse(tokenSet));
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+app.all("/auth/refresh", (req, res, next) => {
+  if (req.method !== "POST") {
+    return res.status(405).json({
+      status: "error",
+      message: "Method not allowed",
+    });
+  }
+
+  return next();
+});
+
+app.post(
+  "/auth/refresh",
+  rateLimitMiddleware({ namespace: "root-auth-refresh", maxRequests: 40 }),
+  async (req, res, next) => {
+    try {
+      const refreshToken = getRefreshTokenFromRequest(req);
+      const clientType = req.cookies?.insighta_refresh ? "web" : resolveClientType(req, "cli");
+      const tokenSet = await refreshSession({
+        refreshToken,
+        clientType,
+        currentCsrfToken: clientType === "web" ? getCsrfTokenFromRequest(req) : "",
+        ip: req.clientIp,
+        userAgent: getUserAgent(req),
+      });
+
+      if (clientType === "web") {
+        applySessionCookies(res, tokenSet);
+      }
+
+      return res.status(200).json(buildTokenResponse(tokenSet));
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+app.all("/auth/logout", (req, res, next) => {
+  if (req.method !== "POST") {
+    return res.status(405).json({
+      status: "error",
+      message: "Method not allowed",
+    });
+  }
+
+  return next();
+});
+
+app.post(
+  "/auth/logout",
+  authenticateRequest(),
+  requireCsrfForCookieAuth,
+  async (req, res, next) => {
+    try {
+      await revokeSessionById(req.auth.session.id);
+      clearSessionCookies(res);
+
+      return res.status(200).json({
+        status: "success",
+        message: "Logged out",
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+app.get("/api/users/me", authenticateRequest(), async (req, res) => {
+  return res.status(200).json({
+    status: "success",
+    user: req.auth.user,
+    data: serializeAuthenticatedUser(req.auth),
+  });
+});
+
+app.get("/api/v1/users/me", authenticateRequest(), async (req, res) => {
+  return res.status(200).json({
+    status: "success",
+    user: req.auth.user,
+    data: serializeAuthenticatedUser(req.auth),
+  });
+});
 
 app.get(
   "/api/profiles/search",

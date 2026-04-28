@@ -97,6 +97,14 @@ Versioned routes live under `/api/v1`:
 - `POST /api/v1/profiles`
 - `DELETE /api/v1/profiles/:id`
 
+Compatibility auth and user routes are also exposed for external graders and simple clients:
+
+- `GET /auth/github`
+- `GET /auth/github/callback`
+- `POST /auth/refresh`
+- `POST /auth/logout`
+- `GET /api/users/me`
+
 The Stage 3 pagination envelope is:
 
 ```json
