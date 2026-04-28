@@ -1,0 +1,10 @@
+{
+  "name": "insighta-web-portal",
+  "version": "1.0.0",
+  "description": "Web portal for the Insighta Labs+ platform",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "ISC"
+}

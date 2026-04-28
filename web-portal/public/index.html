@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Insighta Labs+</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="masthead">
+        <div>
+          <p class="eyebrow">Insighta Labs+</p>
+          <h1>Profile Intelligence Portal</h1>
+          <p class="lede">
+            Secure profile search, export, and administration for the Stage 3 platform.
+          </p>
+        </div>
+        <div class="session-panel">
+          <div id="userSummary" class="user-summary hidden"></div>
+          <button id="loginButton" class="button accent">Continue with GitHub</button>
+          <button id="logoutButton" class="button subtle hidden">Log out</button>
+        </div>
+      </header>
+
+      <main>
+        <section id="statusBanner" class="status hidden"></section>
+
+        <section id="authState" class="band">
+          <div class="band-copy">
+            <h2>Sign in to access the profile system</h2>
+            <p>
+              The browser portal uses GitHub OAuth, short-lived cookies, refresh rotation, and
+              CSRF-protected requests.
+            </p>
+          </div>
+        </section>
+
+        <section id="workspace" class="workspace hidden">
+          <div class="band controls">
+            <div>
+              <h2>Structured filters</h2>
+              <form id="filtersForm" class="grid-form">
+                <label>
+                  Gender
+                  <select name="gender">
+                    <option value="">Any</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
+                </label>
+                <label>
+                  Age group
+                  <select name="age_group">
+                    <option value="">Any</option>
+                    <option value="child">Child</option>
+                    <option value="teenager">Teenager</option>
+                    <option value="adult">Adult</option>
+                    <option value="senior">Senior</option>
+                  </select>
+                </label>
+                <label>
+                  Country ID
+                  <input name="country_id" maxlength="2" placeholder="NG" />
+                </label>
+                <label>
+                  Min age
+                  <input name="min_age" type="number" min="0" />
+                </label>
+                <label>
+                  Max age
+                  <input name="max_age" type="number" min="0" />
+                </label>
+                <label>
+                  Sort by
+                  <select name="sort_by">
+                    <option value="created_at">Created at</option>
+                    <option value="age">Age</option>
+                    <option value="gender_probability">Gender probability</option>
+                  </select>
+                </label>
+                <label>
+                  Order
+                  <select name="order">
+                    <option value="asc">Ascending</option>
+                    <option value="desc">Descending</option>
+                  </select>
+                </label>
+                <label>
+                  Page size
+                  <select name="limit">
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                  </select>
+                </label>
+                <div class="form-actions">
+                  <button type="submit" class="button dark">Apply filters</button>
+                  <button type="button" id="resetFiltersButton" class="button subtle">
+                    Reset
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <div>
+              <h2>Natural language search</h2>
+              <form id="searchForm" class="search-form">
+                <input
+                  id="naturalQuery"
+                  name="q"
+                  placeholder="young males from nigeria"
+                  autocomplete="off"
+                />
+                <div class="form-actions inline">
+                  <button type="submit" class="button accent">Search</button>
+                  <button type="button" id="clearSearchButton" class="button subtle">
+                    Clear
+                  </button>
+                </div>
+              </form>
+              <div class="utility-row">
+                <button id="exportButton" class="button subtle">Export CSV</button>
+              </div>
+            </div>
+          </div>
+
+          <section class="band results">
+            <div class="results-header">
+              <div>
+                <h2>Profiles</h2>
+                <p id="resultsMeta">No results loaded yet.</p>
+              </div>
+              <div id="roleBadge" class="role-badge"></div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Gender</th>
+                    <th>Age</th>
+                    <th>Age group</th>
+                    <th>Country</th>
+                    <th>Gender p</th>
+                    <th>Country p</th>
+                    <th>Created</th>
+                    <th id="actionsHeader" class="hidden">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="profilesTable"></tbody>
+              </table>
+            </div>
+            <div class="pagination">
+              <button id="previousPageButton" class="button subtle">Previous</button>
+              <span id="pageIndicator">Page 1</span>
+              <button id="nextPageButton" class="button subtle">Next</button>
+            </div>
+          </section>
+
+          <section id="adminTools" class="band admin-tools hidden">
+            <div>
+              <h2>Admin tools</h2>
+              <p>Create a profile from the upstream demographic services.</p>
+            </div>
+            <form id="createProfileForm" class="inline-form">
+              <input name="name" placeholder="Enter a full name" autocomplete="off" />
+              <button type="submit" class="button dark">Create profile</button>
+            </form>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="/config.js"></script>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

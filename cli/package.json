@@ -1,0 +1,13 @@
+{
+  "name": "insighta-cli",
+  "version": "1.0.0",
+  "description": "CLI for the Insighta Labs+ profile intelligence platform",
+  "type": "module",
+  "bin": {
+    "insighta": "./bin/insighta.js"
+  },
+  "scripts": {
+    "start": "node ./bin/insighta.js"
+  },
+  "license": "ISC"
+}
