@@ -22,6 +22,7 @@ import {
   requestLoggerMiddleware,
   requireCsrfForCookieAuth,
   requireRole,
+  validateApiVersion,
 } from "../lib/middleware.js";
 import { getProfileStore } from "../lib/profile-store.js";
 import {
@@ -41,6 +42,7 @@ app.set("trust proxy", 1);
 app.use(requestContextMiddleware);
 app.use(cookieParserMiddleware);
 app.use(corsMiddleware);
+app.use(validateApiVersion());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(requestLoggerMiddleware);
